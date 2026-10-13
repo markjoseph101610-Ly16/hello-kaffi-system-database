@@ -1,6 +1,6 @@
 // public/firebase-config.js
 // Browser-ready (no bundler needed): all imports use full CDN URLs.
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmirVWGISgdwg2hL-BkKFa5H29ojbDjiQ",
