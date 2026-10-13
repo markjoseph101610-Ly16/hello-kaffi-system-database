@@ -99,6 +99,37 @@ const buildMenu = () => {
    plus kaffi_proofs (GCash proof images), kaffi_reports (sales CSVs, gzipped), kaffi_pending (OTP sign-ups).
    Without a Firebase key the same code uses a local file (.data/store.json) so you can still test on your own PC. */
 const makeStore = () => {
+  /* SUPABASE: used when SUPABASE_URL + SUPABASE_SERVICE_KEY are set. Same JSON docs as Firestore, kept in the table public.kaffi_docs (col, id, data jsonb).
+     Firebase Admin above is still used to verify Google sign-in tokens. */
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+    const { createClient } = require('@supabase/supabase-js');
+    const sb = createClient(process.env.SUPABASE_URL.trim(), process.env.SUPABASE_SERVICE_KEY.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+    const T = 'kaffi_docs', fail = (what, error) => { throw new Error('Supabase ' + what + ': ' + error.message); };
+    return {
+      kind: 'supabase',
+      async getDoc(col, id) { const { data, error } = await sb.from(T).select('data').eq('col', col).eq('id', id).maybeSingle(); if (error) fail('read', error); return data ? data.data : null; },
+      async listDocs(col, fields) {
+        const sel = fields ? 'id,' + fields.map(f => `${f}:data->${f}`).join(',') : 'id,data', out = [];
+        for (let from = 0; ; from += 1000) {   // PostgREST returns max 1000 rows per request, so read in pages
+          const { data, error } = await sb.from(T).select(sel).eq('col', col).order('id').range(from, from + 999); if (error) fail('list', error);
+          data.forEach(r => out.push({ id: r.id, data: fields ? Object.fromEntries(fields.map(f => [f, r[f]])) : r.data }));
+          if (data.length < 1000) break;
+        }
+        return out;
+      },
+      async findBy(col, field, value) { const { data, error } = await sb.from(T).select('id,data').eq('col', col).eq('data->>' + field, String(value)); if (error) fail('find', error); return data.map(r => ({ id: r.id, data: r.data })); },
+      async commit(sets, dels) {
+        for (let k = 0; k < sets.length; k += 100) {
+          const rows = sets.slice(k, k + 100).map(x => ({ col: x.col, id: x.id, data: x.data, updated_at: new Date().toISOString() }));
+          const { error } = await sb.from(T).upsert(rows, { onConflict: 'col,id' }); if (error) fail('write', error);
+        }
+        const byCol = {}; dels.forEach(x => (byCol[x.col] ||= []).push(x.id));
+        for (const [col, ids] of Object.entries(byCol)) for (let k = 0; k < ids.length; k += 100) {
+          const { error } = await sb.from(T).delete().eq('col', col).in('id', ids.slice(k, k + 100)); if (error) fail('delete', error);
+        }
+      }
+    };
+  }
   if (SERVICE_ACCOUNT) {
     const fdb = admin.firestore();
     return {
@@ -120,7 +151,7 @@ const makeStore = () => {
   let mem = {}; try { mem = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {}
   const persist = () => { try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(mem)); } catch (e) {} };
   const clone = x => JSON.parse(JSON.stringify(x));
-  console.warn('[!] No Firebase key found: using the local file .data/store.json (testing only - Vercel needs FIREBASE_SERVICE_ACCOUNT).');
+  console.warn('[!] No Firebase key found: using the local file .data/store.json (testing only - Vercel needs SUPABASE_URL + SUPABASE_SERVICE_KEY).');
   return {
     kind: 'file',
     async getDoc(col, id) { return mem[col] && mem[col][id] ? clone(mem[col][id]) : null; },
