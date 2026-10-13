@@ -1,5 +1,5 @@
 // public/firebase-config.js
-// Browser-ready (no bundler needed): all imports use full CDN URLs.
+// Browser-ready (walang bundler): full CDN URLs ang lahat ng import.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
   getAuth,
