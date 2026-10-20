@@ -161,6 +161,7 @@ const makeStore = () => {
   };
 };
 const store = makeStore();
+console.log('[Hello Kaffi] database in use:', store.kind);
 const COL = 'kaffi', PROOFS = 'kaffi_proofs', REPORTS = 'kaffi_reports', PENDING = 'kaffi_pending';
 const bucket = (k, n) => parseInt(crypto.createHash('sha1').update(String(k)).digest('hex').slice(0, 6), 16) % n;
 
